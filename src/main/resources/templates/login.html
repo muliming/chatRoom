@@ -1,0 +1,156 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>聊天室</title>
+    <script src="../static/js/jquery.min.js" th:src="@{static/js/jquery.min.js}"></script>
+    <script src="../static/js/layui.all.js" th:src="@{static/js/layui.all.js}"></script>
+    <script src="../static/js/vue.min.js"  th:src="@{static/js/vue.min.js}"></script>
+    <link rel="stylesheet" type="text/css" href="../static/css/demo.css" th:href="@{static/css/demo.css}"/>
+    <link rel="stylesheet" type="text/css" href="../static/css/normalize.css" th:href="@{static/css/normalize.css}"/>
+    <link rel="stylesheet" type="text/css" href="../static/css/login.css" th:href="@{static/css/login.css}"/>
+</head>
+
+<body style="background-color: rgb(230, 230, 230)">
+   
+
+    <div class="login" id="window">
+        <div class="login-title">进入房间</div>
+        <div class="login-input-content">
+            <div class="login-input">
+                <label>昵称：</label>
+                <input type="text" placeholder="请输入昵称"   id="nickname" class="list-input"/>
+            </div>
+            <div class="login-input">
+                <label>房间：</label>
+                <input type="text" placeholder="请输入房间" onfocus="allRoom(this)"  id="roomname" class="list-input" list="rooms"/>
+                <datalist id="rooms"></datalist>
+            </div>
+            <div class="login-input" style="height: 0px">
+                <label>密码：</label>
+                <input type="password" placeholder="密码可留空" id="password" class="list-input" list="rooms"/>
+            </div>
+        </div>
+        <div class="login-button" onclick="editNick()">
+			<a style="text-decoration:none;color:#ffffff;" href="javascript:void(0);"  id="login-button-submit">进入</a>
+		</div>
+    </div>
+
+</body>
+
+<script type="text/javascript">
+
+    window.onload=init;
+    window.onfocus = function() {
+        focus = false;
+    };
+    window.onblur = function() {
+        focus = true;
+    };
+
+    // for IE
+    document.onfocusin = function() {
+        focus = false;
+    };
+    document.onfocusout = function() {
+        focus = true;
+    };
+
+    function init(){
+        $.ajax({
+            type:"GET",
+            url:"http://127.0.0.1:8080/changeImg",
+            success :function (data) {
+                if(data.code==0){
+                    $('body').css("background-image","url("+data.data+")");
+                }else{
+                    layer.msg("服务器异常，请稍后再试",{anim: 6});
+                }
+            }
+        });
+    }
+
+    //设置房间号和昵称并发送，再模拟‘#btn’的点击事件，以弹出侧边栏
+    function editNick() {
+        var nickname = $("#nickname").val();
+        var roomname = $("#roomname").val();
+        var password = $("#password").val();
+        document.getElementById('nickname').value = nickname;
+        document.getElementById('roomname').value = roomname;
+        if (nickname == "" || roomname == ""){
+            layer.msg("房间号和昵称不能为空！",{anim: 6});
+            return;
+        }
+        $.ajax({
+            type: "POST",
+            url: "http://127.0.0.1:8080/login",
+            data: {roomname:roomname,nickname:nickname,password:password},
+            dataType: "json",
+            success: function(data){
+                //房间存在但是昵称重复
+                if (data.code == 1){
+                    layer.msg(data.msg,{anim: 6});
+                    document.getElementById('nickname').value = '';
+                    return;
+                }else if (data.code == 2){ //房间存在但是密码错误
+                    if (password == null || password == ""){
+                        if ($(".login").css("height") == "300px"){
+                            layer.msg("请输入密码",{anim: 6});
+                        }else {
+                            ejectPwd("该房间需要密码");
+                        }
+                    }else {
+                        layer.msg(data.msg,{anim: 6});
+                        document.getElementById('password').value = "";
+                    }
+                    return;
+                }else if (data.code == 3){
+                    //表示房间不存在
+                    if (password == null || password == ""){
+                        layer.confirm('需要为该房间添加一个密码吗？', {
+                            btn: ['需要','不用'] //按钮
+                        }, function(){
+                            ejectPwd("请输入一个密码");
+                            layer.closeAll('dialog');
+                        }, function(){
+                            sendnick(nickname,roomname,password);
+                        });
+                    }else {
+                        sendnick(nickname,roomname,password);
+                    }
+                }else {
+                    sendnick(nickname,roomname,password);
+                }
+            }
+        });
+    }
+
+    //发送昵称和房间号
+    function sendnick(nick,room,pwd){
+        $.ajax({
+            type:"POST",
+            url:"http://127.0.0.1:8080/entryRoom",
+            data:{roomname:room,nickname:nick,password:pwd},
+            dataType:"json",
+            success: function(data) {
+                if(data.code==0){
+                    window.location.href="/chat/"+data.data.roomname+"/"+data.data.nickname;
+                }
+
+            }
+        });
+
+    }
+
+    // 弹出密码框
+    function ejectPwd(message) {
+        $(".login-input").animate({height:'35px'},300);
+        $(".login").animate({height:'300px'},300);
+        $("#password").attr('placeholder',message);
+    }
+
+
+
+
+</script>
+</html>
